@@ -1,7 +1,328 @@
-echo "# Calendar-" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/aurorisgom-byte/Calendar-.git
-git push -u origin main
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Calendario Personal</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+```
+<script type="text/babel">
+    const { useState, useEffect } = React;
+    const { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2 } = lucide;
+
+    const CalendarApp = () => {
+        const [currentDate, setCurrentDate] = useState(new Date());
+        const [activities, setActivities] = useState(() => {
+            const saved = localStorage.getItem('calendar-activities');
+            return saved ? JSON.parse(saved) : {};
+        });
+        const [showAddModal, setShowAddModal] = useState(false);
+        const [selectedDate, setSelectedDate] = useState('');
+        const [newActivity, setNewActivity] = useState({ title: '', time: '', color: '#3b82f6' });
+        const [editingActivity, setEditingActivity] = useState(null);
+
+        const months = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+
+        const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+        const colors = [
+            '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+            '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+        ];
+
+        // Guardar actividades en localStorage
+        useEffect(() => {
+            localStorage.setItem('calendar-activities', JSON.stringify(activities));
+        }, [activities]);
+
+        const getDaysInMonth = (date) => {
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+
+            const days = [];
+            
+            // Días del mes anterior
+            for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+                const prevDate = new Date(year, month, -i);
+                days.push({
+                    date: prevDate.getDate(),
+                    isCurrentMonth: false,
+                    fullDate: prevDate.toISOString().split('T')[0]
+                });
+            }
+
+            // Días del mes actual
+            for (let day = 1; day <= daysInMonth; day++) {
+                const fullDate = new Date(year, month, day);
+                days.push({
+                    date: day,
+                    isCurrentMonth: true,
+                    fullDate: fullDate.toISOString().split('T')[0]
+                });
+            }
+
+            // Días del siguiente mes para completar la grilla
+            const totalCells = Math.ceil(days.length / 7) * 7;
+            let nextMonthDay = 1;
+            for (let i = days.length; i < totalCells; i++) {
+                const nextDate = new Date(year, month + 1, nextMonthDay);
+                days.push({
+                    date: nextMonthDay,
+                    isCurrentMonth: false,
+                    fullDate: nextDate.toISOString().split('T')[0]
+                });
+                nextMonthDay++;
+            }
+
+            return days;
+        };
+
+        const navigateMonth = (direction) => {
+            setCurrentDate(prev => {
+                const newDate = new Date(prev);
+                newDate.setMonth(prev.getMonth() + direction);
+                return newDate;
+            });
+        };
+
+        const openAddModal = (dateString) => {
+            setSelectedDate(dateString);
+            setNewActivity({ title: '', time: '', color: '#3b82f6' });
+            setEditingActivity(null);
+            setShowAddModal(true);
+        };
+
+        const openEditModal = (dateString, activityIndex) => {
+            const activity = activities[dateString][activityIndex];
+            setSelectedDate(dateString);
+            setNewActivity({ ...activity });
+            setEditingActivity(activityIndex);
+            setShowAddModal(true);
+        };
+
+        const saveActivity = () => {
+            if (!newActivity.title.trim()) return;
+
+            setActivities(prev => {
+                const updated = { ...prev };
+                if (!updated[selectedDate]) {
+                    updated[selectedDate] = [];
+                }
+
+                if (editingActivity !== null) {
+                    updated[selectedDate][editingActivity] = { ...newActivity };
+                } else {
+                    updated[selectedDate].push({ ...newActivity });
+                }
+
+                return updated;
+            });
+
+            setShowAddModal(false);
+            setNewActivity({ title: '', time: '', color: '#3b82f6' });
+            setEditingActivity(null);
+        };
+
+        const deleteActivity = (dateString, activityIndex) => {
+            setActivities(prev => {
+                const updated = { ...prev };
+                updated[dateString].splice(activityIndex, 1);
+                if (updated[dateString].length === 0) {
+                    delete updated[dateString];
+                }
+                return updated;
+            });
+        };
+
+        const isToday = (dateString) => {
+            const today = new Date().toISOString().split('T')[0];
+            return dateString === today;
+        };
+
+        const days = getDaysInMonth(currentDate);
+
+        return React.createElement('div', { className: "max-w-6xl mx-auto p-4 bg-gray-100 min-h-screen" },
+            React.createElement('div', { className: "bg-white rounded-lg shadow-lg overflow-hidden" },
+                // Header
+                React.createElement('div', { className: "bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6" },
+                    React.createElement('div', { className: "flex items-center justify-between" },
+                        React.createElement('h1', { className: "text-xl md:text-2xl font-bold" }, "📅 Mi Calendario"),
+                        React.createElement('div', { className: "flex items-center space-x-4" },
+                            React.createElement('button', {
+                                onClick: () => navigateMonth(-1),
+                                className: "p-2 hover:bg-white/20 rounded-full transition-colors"
+                            }, React.createElement(ChevronLeft, { size: 20 })),
+                            React.createElement('h2', { className: "text-lg md:text-xl font-semibold min-w-32 md:min-w-48 text-center" },
+                                months[currentDate.getMonth()] + ' ' + currentDate.getFullYear()
+                            ),
+                            React.createElement('button', {
+                                onClick: () => navigateMonth(1),
+                                className: "p-2 hover:bg-white/20 rounded-full transition-colors"
+                            }, React.createElement(ChevronRight, { size: 20 }))
+                        )
+                    )
+                ),
+
+                // Días de la semana
+                React.createElement('div', { className: "grid grid-cols-7 bg-gray-50 border-b" },
+                    weekDays.map(day => 
+                        React.createElement('div', { key: day, className: "p-2 text-center font-semibold text-gray-600 text-sm" }, day)
+                    )
+                ),
+
+                // Grilla del calendario
+                React.createElement('div', { className: "grid grid-cols-7 gap-0" },
+                    days.map((day, index) => 
+                        React.createElement('div', {
+                            key: index,
+                            className: `min-h-24 md:min-h-32 border border-gray-200 p-1 md:p-2 relative ${
+                                day.isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50'
+                            } ${isToday(day.fullDate) ? 'bg-blue-50 border-blue-300' : ''}`
+                        },
+                            React.createElement('div', { className: "flex justify-between items-start mb-1" },
+                                React.createElement('span', {
+                                    className: `text-xs md:text-sm font-medium ${
+                                        day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                                    } ${isToday(day.fullDate) ? 'text-blue-600 font-bold' : ''}`
+                                }, day.date),
+                                day.isCurrentMonth && React.createElement('button', {
+                                    onClick: () => openAddModal(day.fullDate),
+                                    className: "p-1 hover:bg-gray-200 rounded transition-all text-gray-500 hover:text-gray-700"
+                                }, React.createElement(Plus, { size: 12 }))
+                            ),
+
+                            // Actividades
+                            React.createElement('div', { className: "space-y-1" },
+                                activities[day.fullDate]?.map((activity, actIndex) => 
+                                    React.createElement('div', {
+                                        key: actIndex,
+                                        className: "group relative bg-opacity-20 rounded-md p-1 text-xs cursor-pointer hover:bg-opacity-30 transition-all",
+                                        style: { backgroundColor: activity.color },
+                                        onClick: () => day.isCurrentMonth && openEditModal(day.fullDate, actIndex)
+                                    },
+                                        React.createElement('div', { className: "flex items-center justify-between" },
+                                            React.createElement('div', { className: "flex-1 min-w-0" },
+                                                React.createElement('div', { className: "font-medium text-gray-800 truncate text-xs" },
+                                                    activity.title
+                                                ),
+                                                activity.time && React.createElement('div', { className: "text-gray-600 text-xs" },
+                                                    activity.time
+                                                )
+                                            ),
+                                            React.createElement('div', { className: "opacity-0 group-hover:opacity-100 flex space-x-1 ml-1" },
+                                                React.createElement('button', {
+                                                    onClick: (e) => {
+                                                        e.stopPropagation();
+                                                        deleteActivity(day.fullDate, actIndex);
+                                                    },
+                                                    className: "p-0.5 hover:bg-red-200 rounded text-red-600"
+                                                }, React.createElement(Trash2, { size: 8 }))
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+
+            // Modal para agregar/editar actividad
+            showAddModal && React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" },
+                React.createElement('div', { className: "bg-white rounded-lg p-6 w-full max-w-md" },
+                    React.createElement('div', { className: "flex justify-between items-center mb-4" },
+                        React.createElement('h3', { className: "text-lg font-semibold" },
+                            editingActivity !== null ? 'Editar Actividad' : 'Nueva Actividad'
+                        ),
+                        React.createElement('button', {
+                            onClick: () => setShowAddModal(false),
+                            className: "p-1 hover:bg-gray-100 rounded"
+                        }, React.createElement(X, { size: 20 }))
+                    ),
+
+                    React.createElement('div', { className: "space-y-4" },
+                        React.createElement('div', null,
+                            React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-1" },
+                                "Título *"
+                            ),
+                            React.createElement('input', {
+                                type: "text",
+                                value: newActivity.title,
+                                onChange: (e) => setNewActivity({...newActivity, title: e.target.value}),
+                                className: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500",
+                                placeholder: "Nombre de la actividad"
+                            })
+                        ),
+
+                        React.createElement('div', null,
+                            React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-1" },
+                                "Hora (opcional)"
+                            ),
+                            React.createElement('input', {
+                                type: "time",
+                                value: newActivity.time,
+                                onChange: (e) => setNewActivity({...newActivity, time: e.target.value}),
+                                className: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            })
+                        ),
+
+                        React.createElement('div', null,
+                            React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-1" },
+                                "Color"
+                            ),
+                            React.createElement('div', { className: "flex flex-wrap gap-2" },
+                                colors.map(color => 
+                                    React.createElement('button', {
+                                        key: color,
+                                        onClick: () => setNewActivity({...newActivity, color}),
+                                        className: `w-8 h-8 rounded-full border-2 ${
+                                            newActivity.color === color ? 'border-gray-800' : 'border-gray-300'
+                                        }`,
+                                        style: { backgroundColor: color }
+                                    })
+                                )
+                            )
+                        )
+                    ),
+
+                    React.createElement('div', { className: "flex space-x-3 mt-6" },
+                        React.createElement('button', {
+                            onClick: () => setShowAddModal(false),
+                            className: "flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                        }, "Cancelar"),
+                        React.createElement('button', {
+                            onClick: saveActivity,
+                            disabled: !newActivity.title.trim(),
+                            className: "flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 transition-colors"
+                        }, editingActivity !== null ? 'Actualizar' : 'Agregar')
+                    )
+                )
+            )
+        );
+    };
+
+    ReactDOM.render(React.createElement(CalendarApp), document.getElementById('root'));
+</script>
+```
+
+</body>
+</html>
